@@ -1,46 +1,5 @@
 import pandas as pd
 import numpy as np
-import re
-
-def __straight_sets_victory(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Calculate whether a match was won in straight sets (no set lost).
-    Adds a new column 'Straight_sets_victory' with 1 for straight-sets wins and 0 otherwise.
-    Input: DataFrame with columns 'Score' and 'Best of'
-    Output: DataFrame with new column 'Straight_sets_victory'
-    """
-    
-    n_sets = df["Score"].str.split().apply(len)
-    
-    df["Straight_sets_victory"] = np.where(
-        ((df["Best of"] == 3) & (n_sets <= 2)) |
-        ((df["Best of"] == 5) & (n_sets <= 3)), 1, 0
-    )
-    
-    return df
-
-def __season(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Extract the season from the 'Date' column and encode it as a numeric ID.
-    Spring=0, Summer=1, Autumn=2, Winter=3.
-    Input: DataFrame with 'Date' column in format YYYY-MM-DD
-    Output: DataFrame with new column 'Season'
-    """
-
-    months = df["Date"].str.split("-").str[1].astype(int)
-
-    df["Season"] = np.select(
-        [
-            months.isin([3, 4, 5]),        # Spring
-            months.isin([6, 7, 8]),        # Summer
-            months.isin([9, 10, 11]),      # Autumn
-            months.isin([12, 1, 2])        # Winter
-        ],
-        [0, 1, 2, 3],
-        default=-1
-    )
-
-    return df
 
 def __rank_difference(df: pd.DataFrame) -> pd.DataFrame:
     """
@@ -260,6 +219,81 @@ def __surface_performance(df: pd.DataFrame) -> pd.DataFrame:
     Output: DataFrame with new surface performance features
     """
     
+    # Sort chronologically
+    df = df.sort_values('Date').reset_index(drop=True)
+    
+    # Initialize feature columns
+    df['Surface_wins_1'] = 0
+    df['Surface_losses_1'] = 0
+    df['Surface_matches_1'] = 0
+    df['Surface_win_pct_1'] = 0.0
+    
+    df['Surface_wins_2'] = 0
+    df['Surface_losses_2'] = 0
+    df['Surface_matches_2'] = 0
+    df['Surface_win_pct_2'] = 0.0
+    
+    df['Surface_win_pct_diff'] = 0.0
+    df['Surface_matches_diff'] = 0
+    
+    # Dictionary to track surface-specific statistics
+    surface_stats = {}
+    
+    for idx, row in df.iterrows():
+        player_1 = row['Player_1']
+        player_2 = row['Player_2']
+        surface = row['Surface']
+        winner = row['Winner']
+        
+        # Initialize if not exists
+        if player_1 not in surface_stats:
+            surface_stats[player_1] = {}
+        if player_2 not in surface_stats:
+            surface_stats[player_2] = {}
+        if surface not in surface_stats[player_1]:
+            surface_stats[player_1][surface] = {'wins': 0, 'losses': 0, 'matches': 0}
+        if surface not in surface_stats[player_2]:
+            surface_stats[player_2][surface] = {'wins': 0, 'losses': 0, 'matches': 0}
+        
+        # Get stats BEFORE this match
+        stats_1 = surface_stats[player_1][surface]
+        stats_2 = surface_stats[player_2][surface]
+        
+        # Assign features for Player 1
+        df.at[idx, 'Surface_wins_1'] = stats_1['wins']
+        df.at[idx, 'Surface_losses_1'] = stats_1['losses']
+        df.at[idx, 'Surface_matches_1'] = stats_1['matches']
+        df.at[idx, 'Surface_win_pct_1'] = (
+            round(stats_1['wins'] / stats_1['matches'] if stats_1['matches'] > 0 else 0.0, 2)
+        )
+        
+        # Assign features for Player 2
+        df.at[idx, 'Surface_wins_2'] = stats_2['wins']
+        df.at[idx, 'Surface_losses_2'] = stats_2['losses']
+        df.at[idx, 'Surface_matches_2'] = stats_2['matches']
+        df.at[idx, 'Surface_win_pct_2'] = (
+            round(stats_2['wins'] / stats_2['matches'] if stats_2['matches'] > 0 else 0.0, 2)
+        )
+        
+        # Calculate differences
+        df.at[idx, 'Surface_win_pct_diff'] = (
+            round(df.at[idx, 'Surface_win_pct_1'] - df.at[idx, 'Surface_win_pct_2'], 2)
+        )
+        df.at[idx, 'Surface_matches_diff'] = (
+            stats_1['matches'] - stats_2['matches']
+        )
+        
+        # Update AFTER this match
+        surface_stats[player_1][surface]['matches'] += 1
+        surface_stats[player_2][surface]['matches'] += 1
+        
+        if winner == player_1:
+            surface_stats[player_1][surface]['wins'] += 1
+            surface_stats[player_2][surface]['losses'] += 1
+        elif winner == player_2:
+            surface_stats[player_2][surface]['wins'] += 1
+            surface_stats[player_1][surface]['losses'] += 1
+    
     return df
 
 def __tournament_performance(df: pd.DataFrame) -> pd.DataFrame:
@@ -300,13 +334,51 @@ def __recovery_time(df: pd.DataFrame) -> pd.DataFrame:
     """
 
     return df
+
+def __straight_sets_victory(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Calculate whether a match was won in straight sets (no set lost).
+    Adds a new column 'Straight_sets_victory' with 1 for straight-sets wins and 0 otherwise.
+    Input: DataFrame with columns 'Score' and 'Best of'
+    Output: DataFrame with new column 'Straight_sets_victory'
+    """
+    
+    n_sets = df["Score"].str.split().apply(len)
+    
+    df["Straight_sets_victory"] = np.where(
+        ((df["Best of"] == 3) & (n_sets <= 2)) |
+        ((df["Best of"] == 5) & (n_sets <= 3)), 1, 0
+    )
+    
+    return df
+
+def __season(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Extract the season from the 'Date' column and encode it as a numeric ID.
+    Spring=0, Summer=1, Autumn=2, Winter=3.
+    Input: DataFrame with 'Date' column in format YYYY-MM-DD
+    Output: DataFrame with new column 'Season'
+    """
+
+    months = df["Date"].str.split("-").str[1].astype(int)
+
+    df["Season"] = np.select(
+        [
+            months.isin([3, 4, 5]),        # Spring
+            months.isin([6, 7, 8]),        # Summer
+            months.isin([9, 10, 11]),      # Autumn
+            months.isin([12, 1, 2])        # Winter
+        ],
+        [0, 1, 2, 3],
+        default=-1
+    )
+
+    return df
     
 def process_features(path_to_df: str) -> pd.DataFrame:
     df = pd.read_csv(path_to_df)
     df_processed = df.copy()
     
-    df_processed = __straight_sets_victory(df_processed)
-    df_processed = __season(df_processed)
     df_processed = __rank_difference(df_processed)
     df_processed = __odds_difference(df_processed)
     df_processed = __h2h_features(df_processed)
@@ -317,6 +389,8 @@ def process_features(path_to_df: str) -> pd.DataFrame:
     df_processed = __rank_trends(df_processed)
     df_processed = __match_context(df_processed)
     df_processed = __recovery_time(df_processed)
+    df_processed = __straight_sets_victory(df_processed)
+    df_processed = __season(df_processed)
     
     df_processed.to_csv("../data/processed/atp_tennis_processed.csv", index=False)
     
