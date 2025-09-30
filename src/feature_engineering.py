@@ -118,14 +118,170 @@ def __recent_form(df: pd.DataFrame, n_matches: int = 5) -> pd.DataFrame:
     Input: DataFrame with historical match results
     Output: DataFrame with new recent form features
     """
+    import re
+    
+    # Funzione helper per parsare lo score
+    def parse_score(score_str):
+        """Estrae set vinti da una stringa di score (es. '6-4 6-3' o '6-4 3-6 7-5')"""
+        if pd.isna(score_str) or score_str == '':
+            return None, None
+        
+        try:
+            # Rimuovi eventuali caratteri speciali o annotazioni (tiebreak, ritiri, etc.)
+            score_str = str(score_str).strip()
+            score_str = re.sub(r'\([^)]*\)', '', score_str)  # Rimuove contenuto tra parentesi
+            score_str = re.sub(r'[A-Za-z]+', '', score_str)  # Rimuove lettere (RET, W/O, etc.)
+            
+            # Dividi per set
+            sets = score_str.split()
+            sets_player1 = 0
+            sets_player2 = 0
+            games_player1 = 0
+            games_player2 = 0
+            
+            for set_score in sets:
+                if '-' in set_score:
+                    games = set_score.split('-')
+                    if len(games) == 2:
+                        g1 = int(re.sub(r'\D', '', games[0])) if games[0] else 0
+                        g2 = int(re.sub(r'\D', '', games[1])) if games[1] else 0
+                        
+                        games_player1 += g1
+                        games_player2 += g2
+                        
+                        if g1 > g2:
+                            sets_player1 += 1
+                        else:
+                            sets_player2 += 1
+            
+            return (sets_player1, sets_player2, games_player1, games_player2)
+        except:
+            return None, None, None, None
+    
+    # Ordina cronologicamente
+    df = df.sort_values('Date').reset_index(drop=True)
+    
+    # Inizializza colonne delle feature
+    df['Win_pct_1_lastN'] = 0.0
+    df['Win_pct_2_lastN'] = 0.0
+    df['Win_pct_diff_lastN'] = 0.0
+    df['Sets_won_ratio_1'] = 0.0
+    df['Sets_won_ratio_2'] = 0.0
+    df['Games_won_ratio_1'] = 0.0
+    df['Games_won_ratio_2'] = 0.0
+    df['Matches_played_1'] = 0
+    df['Matches_played_2'] = 0
+    
+    # Dizionario per memorizzare la storia recente di ogni giocatore
+    player_history = {}
+    
+    for idx, row in df.iterrows():
+        player_1 = row['Player_1']
+        player_2 = row['Player_2']
+        winner = row['Winner']
+        score = row.get('Score', '')
+        
+        # Inizializza storia giocatori se non esiste
+        if player_1 not in player_history:
+            player_history[player_1] = {
+                'wins': [], 
+                'sets_won': [], 
+                'sets_total': [],
+                'games_won': [],
+                'games_total': []
+            }
+        if player_2 not in player_history:
+            player_history[player_2] = {
+                'wins': [], 
+                'sets_won': [], 
+                'sets_total': [],
+                'games_won': [],
+                'games_total': []
+            }
+        
+        # Ottieni forma recente PRIMA di questo match
+        hist_1 = player_history[player_1]
+        hist_2 = player_history[player_2]
+        
+        # Calcola statistiche per Player 1
+        recent_wins_1 = hist_1['wins'][-n_matches:]
+        win_pct_1 = sum(recent_wins_1) / len(recent_wins_1) if recent_wins_1 else 0.0
+        matches_played_1 = len(recent_wins_1)
+        
+        recent_sets_won_1 = sum(hist_1['sets_won'][-n_matches:])
+        recent_sets_total_1 = sum(hist_1['sets_total'][-n_matches:])
+        sets_ratio_1 = recent_sets_won_1 / recent_sets_total_1 if recent_sets_total_1 > 0 else 0.0
+        
+        recent_games_won_1 = sum(hist_1['games_won'][-n_matches:])
+        recent_games_total_1 = sum(hist_1['games_total'][-n_matches:])
+        games_ratio_1 = recent_games_won_1 / recent_games_total_1 if recent_games_total_1 > 0 else 0.0
+        
+        # Calcola statistiche per Player 2
+        recent_wins_2 = hist_2['wins'][-n_matches:]
+        win_pct_2 = sum(recent_wins_2) / len(recent_wins_2) if recent_wins_2 else 0.0
+        matches_played_2 = len(recent_wins_2)
+        
+        recent_sets_won_2 = sum(hist_2['sets_won'][-n_matches:])
+        recent_sets_total_2 = sum(hist_2['sets_total'][-n_matches:])
+        sets_ratio_2 = recent_sets_won_2 / recent_sets_total_2 if recent_sets_total_2 > 0 else 0.0
+        
+        recent_games_won_2 = sum(hist_2['games_won'][-n_matches:])
+        recent_games_total_2 = sum(hist_2['games_total'][-n_matches:])
+        games_ratio_2 = recent_games_won_2 / recent_games_total_2 if recent_games_total_2 > 0 else 0.0
+        
+        # Assegna feature per questo match
+        df.at[idx, 'Win_pct_1_lastN'] = win_pct_1
+        df.at[idx, 'Win_pct_2_lastN'] = win_pct_2
+        df.at[idx, 'Win_pct_diff_lastN'] = win_pct_1 - win_pct_2
+        df.at[idx, 'Sets_won_ratio_1'] = sets_ratio_1
+        df.at[idx, 'Sets_won_ratio_2'] = sets_ratio_2
+        df.at[idx, 'Games_won_ratio_1'] = games_ratio_1
+        df.at[idx, 'Games_won_ratio_2'] = games_ratio_2
+        df.at[idx, 'Matches_played_1'] = matches_played_1
+        df.at[idx, 'Matches_played_2'] = matches_played_2
+        
+        # Parsa lo score per ottenere dettagli su set e game
+        sets_p1, sets_p2, games_p1, games_p2 = parse_score(score)
+        
+        # Aggiorna storia DOPO questo match
+        # Player 1
+        hist_1['wins'].append(1 if winner == player_1 else 0)
+        if sets_p1 is not None:
+            hist_1['sets_won'].append(sets_p1)
+            hist_1['sets_total'].append(sets_p1 + sets_p2 if sets_p2 is not None else sets_p1)
+            hist_1['games_won'].append(games_p1 if games_p1 is not None else 0)
+            hist_1['games_total'].append((games_p1 + games_p2) if (games_p1 is not None and games_p2 is not None) else 0)
+        else:
+            hist_1['sets_won'].append(0)
+            hist_1['sets_total'].append(0)
+            hist_1['games_won'].append(0)
+            hist_1['games_total'].append(0)
+        
+        # Player 2
+        hist_2['wins'].append(1 if winner == player_2 else 0)
+        if sets_p2 is not None:
+            hist_2['sets_won'].append(sets_p2)
+            hist_2['sets_total'].append(sets_p1 + sets_p2 if sets_p1 is not None else sets_p2)
+            hist_2['games_won'].append(games_p2 if games_p2 is not None else 0)
+            hist_2['games_total'].append((games_p1 + games_p2) if (games_p1 is not None and games_p2 is not None) else 0)
+        else:
+            hist_2['sets_won'].append(0)
+            hist_2['sets_total'].append(0)
+            hist_2['games_won'].append(0)
+            hist_2['games_total'].append(0)
+    
+    return df
+
+    
 
 def __career_performance(df: pd.DataFrame) -> pd.DataFrame:
     """
     Compute performance of each player on career.
-    Adds features like 'Career_win','Career_lose'
+    Adds features like 'Career_win_pct','Career_lose'
     Input: DataFrame with 'Winner' column and historical match results
     Output: DataFrame with new win/lose performance features
     """
+    
 
 def __surface_performance(df: pd.DataFrame) -> pd.DataFrame:
     """
@@ -176,6 +332,7 @@ def process_features(path_to_df: str) -> pd.DataFrame:
     df_processed = __season(df_processed)
     df_processed = __rank_difference(df_processed)
     df_processed = __h2h_features(df_processed)
+    df_processed = __recent_form(df_processed)
     
     df_processed.to_csv("../data/processed/atp_tennis_processed.csv", index=False)
     
