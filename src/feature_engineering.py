@@ -298,13 +298,89 @@ def __surface_performance(df: pd.DataFrame) -> pd.DataFrame:
 
 def __tournament_performance(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Compute performance of each player in this tournament or similar tournaments.
-    Adds features like 'Tournament_win_pct_1', 'Tournament_win_pct_2'
+    Compute performance of each player in the specific tournament.
+    Adds features like 'Tournament_win_pct_1', 'Tournament_win_pct_2', 'Tournament_win_diff'
     Input: DataFrame with 'Tournament' column and historical match results
     Output: DataFrame with new tournament performance features
     """
     
+    # Sort chronologically
+    df = df.sort_values('Date').reset_index(drop=True)
+    
+    # Initialize feature columns
+    df['Tournament_wins_1'] = 0
+    df['Tournament_losses_1'] = 0
+    df['Tournament_matches_1'] = 0
+    df['Tournament_win_pct_1'] = 0.0
+    
+    df['Tournament_wins_2'] = 0
+    df['Tournament_losses_2'] = 0
+    df['Tournament_matches_2'] = 0
+    df['Tournament_win_pct_2'] = 0.0
+    
+    df['Tournament_win_pct_diff'] = 0.0
+    df['Tournament_matches_diff'] = 0
+    
+    # Dictionary to track tournament-specific statistics
+    tournament_stats = {}
+    
+    for idx, row in df.iterrows():
+        player_1 = row['Player_1']
+        player_2 = row['Player_2']
+        tournament = row['Tournament']
+        winner = row['Winner']
+        
+        # Initialize if not exists
+        if player_1 not in tournament_stats:
+            tournament_stats[player_1] = {}
+        if player_2 not in tournament_stats:
+            tournament_stats[player_2] = {}
+        if tournament not in tournament_stats[player_1]:
+            tournament_stats[player_1][tournament] = {'wins': 0, 'losses': 0, 'matches': 0}
+        if tournament not in tournament_stats[player_2]:
+            tournament_stats[player_2][tournament] = {'wins': 0, 'losses': 0, 'matches': 0}
+        
+        # Get stats BEFORE this match
+        stats_1 = tournament_stats[player_1][tournament]
+        stats_2 = tournament_stats[player_2][tournament]
+        
+        # Assign features for Player 1
+        df.at[idx, 'Tournament_wins_1'] = stats_1['wins']
+        df.at[idx, 'Tournament_losses_1'] = stats_1['losses']
+        df.at[idx, 'Tournament_matches_1'] = stats_1['matches']
+        df.at[idx, 'Tournament_win_pct_1'] = (
+            round(stats_1['wins'] / stats_1['matches'] if stats_1['matches'] > 0 else 0.0, 2)
+        )
+        
+        # Assign features for Player 2
+        df.at[idx, 'Tournament_wins_2'] = stats_2['wins']
+        df.at[idx, 'Tournament_losses_2'] = stats_2['losses']
+        df.at[idx, 'Tournament_matches_2'] = stats_2['matches']
+        df.at[idx, 'Tournament_win_pct_2'] = (
+            round(stats_2['wins'] / stats_2['matches'] if stats_2['matches'] > 0 else 0.0, 2)
+        )
+        
+        # Calculate differences
+        df.at[idx, 'Tournament_win_pct_diff'] = (
+            round(df.at[idx, 'Tournament_win_pct_1'] - df.at[idx, 'Tournament_win_pct_2'], 2)
+        )
+        df.at[idx, 'Tournament_matches_diff'] = (
+            stats_1['matches'] - stats_2['matches']
+        )
+        
+        # Update AFTER this match
+        tournament_stats[player_1][tournament]['matches'] += 1
+        tournament_stats[player_2][tournament]['matches'] += 1
+        
+        if winner == player_1:
+            tournament_stats[player_1][tournament]['wins'] += 1
+            tournament_stats[player_2][tournament]['losses'] += 1
+        elif winner == player_2:
+            tournament_stats[player_2][tournament]['wins'] += 1
+            tournament_stats[player_1][tournament]['losses'] += 1
+    
     return df
+
 
 def __rank_trends(df: pd.DataFrame) -> pd.DataFrame:
     """
