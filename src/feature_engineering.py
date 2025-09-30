@@ -408,7 +408,58 @@ def __recovery_time(df: pd.DataFrame) -> pd.DataFrame:
     Input: DataFrame with match dates and historical data
     Output: DataFrame with timing features
     """
-
+    
+    # Sort matches chronologically
+    df = df.sort_values('Date').reset_index(drop=True)
+    
+    # Ensure Date column is in datetime format
+    if df['Date'].dtype != 'datetime64[ns]':
+        df['Date'] = pd.to_datetime(df['Date'])
+    
+    # Initialize feature columns
+    df['Days_since_last_match_1'] = np.nan
+    df['Days_since_last_match_2'] = np.nan
+    df['Days_diff'] = 0.0
+    
+    # Dictionary to track each player's last match date
+    last_match_date = {}
+    
+    for idx, row in df.iterrows():
+        player_1 = row['Player_1']
+        player_2 = row['Player_2']
+        current_date = row['Date']
+        
+        # Calculate days since last match for Player 1
+        if player_1 in last_match_date:
+            days_since_1 = (current_date - last_match_date[player_1]).days
+            df.at[idx, 'Days_since_last_match_1'] = days_since_1
+        else:
+            # First match for this player in the dataset
+            df.at[idx, 'Days_since_last_match_1'] = np.nan
+        
+        # Calculate days since last match for Player 2
+        if player_2 in last_match_date:
+            days_since_2 = (current_date - last_match_date[player_2]).days
+            df.at[idx, 'Days_since_last_match_2'] = days_since_2
+        else:
+            # First match for this player in the dataset
+            df.at[idx, 'Days_since_last_match_2'] = np.nan
+        
+        # Calculate difference in rest days (positive means player 1 is more rested)
+        if pd.notna(df.at[idx, 'Days_since_last_match_1']) and pd.notna(df.at[idx, 'Days_since_last_match_2']):
+            df.at[idx, 'Days_diff'] = df.at[idx, 'Days_since_last_match_1'] - df.at[idx, 'Days_since_last_match_2']
+        
+        # Update last match date for both players
+        last_match_date[player_1] = current_date
+        last_match_date[player_2] = current_date
+    
+    # Fill NaN values with median - FIX: use assignment instead of inplace
+    median_rest_1 = df['Days_since_last_match_1'].median()
+    median_rest_2 = df['Days_since_last_match_2'].median()
+    
+    df['Days_since_last_match_1'] = df['Days_since_last_match_1'].fillna(median_rest_1)
+    df['Days_since_last_match_2'] = df['Days_since_last_match_2'].fillna(median_rest_2)
+    
     return df
 
 def __straight_sets_victory(df: pd.DataFrame) -> pd.DataFrame:
@@ -432,13 +483,19 @@ def __season(df: pd.DataFrame) -> pd.DataFrame:
     """
     Extract the season from the 'Date' column and encode it as a numeric ID.
     Spring=0, Summer=1, Autumn=2, Winter=3.
-    Input: DataFrame with 'Date' column in format YYYY-MM-DD
+    Input: DataFrame with 'Date' column in datetime format
     Output: DataFrame with new column 'Season'
     """
 
-    months = df["Date"].str.split("-").str[1].astype(int)
-
-    df["Season"] = np.select(
+    
+    # Ensure Date is in datetime format
+    if df['Date'].dtype != 'datetime64[ns]':
+        df['Date'] = pd.to_datetime(df['Date'])
+    
+    # Extract month using .dt accessor (not .str since Date is datetime)
+    months = df['Date'].dt.month
+    
+    df['Season'] = np.select(
         [
             months.isin([3, 4, 5]),        # Spring
             months.isin([6, 7, 8]),        # Summer
@@ -448,8 +505,9 @@ def __season(df: pd.DataFrame) -> pd.DataFrame:
         [0, 1, 2, 3],
         default=-1
     )
-
+    
     return df
+
     
 def process_features(path_to_df: str) -> pd.DataFrame:
     df = pd.read_csv(path_to_df)
