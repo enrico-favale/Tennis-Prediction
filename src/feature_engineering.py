@@ -48,6 +48,9 @@ def __rank_difference(df: pd.DataFrame) -> pd.DataFrame:
     Input: DataFrame with 'Rank_1', 'Rank_2', 'Pts_1', 'Pts_2'
     Output: DataFrame with new columns 'Rank_diff', 'Pts_diff'
     """
+    df["Rank_diff"]= df["Rank_1"] - df["Rank_2"]
+    df["Pts_diff"]= df["Pts_1"] - df["Pts_2"]
+    return df
 
 def __odds_difference(df: pd.DataFrame) -> pd.DataFrame:
     """
@@ -120,6 +123,7 @@ def process_features(path_to_df: str) -> pd.DataFrame:
     
     df_processed = __straight_sets_victory(df_processed)
     df_processed = __season(df_processed)
+    df_processed = __rank_difference(df_processed)
     
     df_processed.to_csv("../data/processed/atp_tennis_processed.csv", index=False)
     
