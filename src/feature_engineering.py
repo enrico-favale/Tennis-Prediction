@@ -48,8 +48,11 @@ def __rank_difference(df: pd.DataFrame) -> pd.DataFrame:
     Input: DataFrame with 'Rank_1', 'Rank_2', 'Pts_1', 'Pts_2'
     Output: DataFrame with new columns 'Rank_diff', 'Pts_diff'
     """
+    
     df["Rank_diff"]= df["Rank_1"] - df["Rank_2"]
     df["Pts_diff"]= df["Pts_1"] - df["Pts_2"]
+    df["Odds_diff"]= round(df["Odd_1"] - df["Odd_2"], 2)
+    
     return df
 
 def __odds_difference(df: pd.DataFrame) -> pd.DataFrame:
@@ -59,6 +62,7 @@ def __odds_difference(df: pd.DataFrame) -> pd.DataFrame:
     Input: DataFrame with 'Odd_1' and 'Odd_2'
     Output: DataFrame with new column 'Odds_diff'
     """
+    
 
 def __h2h_features(df: pd.DataFrame) -> pd.DataFrame:
     """
@@ -67,6 +71,44 @@ def __h2h_features(df: pd.DataFrame) -> pd.DataFrame:
     Input: DataFrame with historical match results
     Output: DataFrame with new H2H feature columns
     """
+    df = df.sort_values('Date').reset_index(drop=True)
+    
+    # Initialize columns
+    h2h_wins_1 = []
+    h2h_wins_2 = []
+    
+    for idx in range(len(df)):
+        player_1 = df.loc[idx, 'Player_1']
+        player_2 = df.loc[idx, 'Player_2']
+        
+        # Filter all previous matches between these players
+        previous_matches = df.iloc[:idx]
+        h2h_matches = previous_matches[
+            ((previous_matches['Player_1'] == player_1) & (previous_matches['Player_2'] == player_2)) |
+            ((previous_matches['Player_1'] == player_2) & (previous_matches['Player_2'] == player_1))
+        ]
+        
+        # Count wins for each player
+        wins_1 = (
+            ((h2h_matches['Player_1'] == player_1) & (h2h_matches['Winner'] == player_1)).sum() +
+            ((h2h_matches['Player_2'] == player_1) & (h2h_matches['Winner'] == player_1)).sum()
+        )
+        
+        wins_2 = (
+            ((h2h_matches['Player_1'] == player_2) & (h2h_matches['Winner'] == player_2)).sum() +
+            ((h2h_matches['Player_2'] == player_2) & (h2h_matches['Winner'] == player_2)).sum()
+        )
+        
+        h2h_wins_1.append(wins_1)
+        h2h_wins_2.append(wins_2)
+    
+    df['H2H_wins_1'] = h2h_wins_1
+    df['H2H_wins_2'] = h2h_wins_2
+    df['H2H_diff'] = df['H2H_wins_1'] - df['H2H_wins_2']
+    
+    return df
+
+    
 
 def __recent_form(df: pd.DataFrame, n_matches: int = 5) -> pd.DataFrame:
     """
@@ -75,6 +117,14 @@ def __recent_form(df: pd.DataFrame, n_matches: int = 5) -> pd.DataFrame:
     'Sets_won_ratio', 'Games_won_ratio', etc.
     Input: DataFrame with historical match results
     Output: DataFrame with new recent form features
+    """
+
+def __career_performance(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Compute performance of each player on career.
+    Adds features like 'Career_win','Career_lose'
+    Input: DataFrame with 'Winner' column and historical match results
+    Output: DataFrame with new win/lose performance features
     """
 
 def __surface_performance(df: pd.DataFrame) -> pd.DataFrame:
@@ -116,6 +166,7 @@ def __recovery_time(df: pd.DataFrame) -> pd.DataFrame:
     Output: DataFrame with timing features
     """
 
+
     
 def process_features(path_to_df: str) -> pd.DataFrame:
     df = pd.read_csv(path_to_df)
@@ -124,6 +175,7 @@ def process_features(path_to_df: str) -> pd.DataFrame:
     df_processed = __straight_sets_victory(df_processed)
     df_processed = __season(df_processed)
     df_processed = __rank_difference(df_processed)
+    df_processed = __h2h_features(df_processed)
     
     df_processed.to_csv("../data/processed/atp_tennis_processed.csv", index=False)
     
