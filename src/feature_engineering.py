@@ -102,9 +102,9 @@ def __h2h_features(df: pd.DataFrame) -> pd.DataFrame:
         h2h_wins_1.append(wins_1)
         h2h_wins_2.append(wins_2)
     
-    df['H2H_wins_1'] = h2h_wins_1
-    df['H2H_wins_2'] = h2h_wins_2
-    df['H2H_diff'] = df['H2H_wins_1'] - df['H2H_wins_2']
+    df['H2H_wins_1'] = round(h2h_wins_1, 2)
+    df['H2H_wins_2'] = round(h2h_wins_2, 2)
+    df['H2H_diff'] = round(df['H2H_wins_1'] - df['H2H_wins_2'], 2)
     
     return df
 
