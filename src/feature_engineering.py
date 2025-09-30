@@ -20,25 +20,25 @@ def __straight_sets_victory(df: pd.DataFrame) -> pd.DataFrame:
 
 def __season(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Extract the season from the 'Date' column.
-    Encode seasons as numerical IDs: Spring=0, Summer=1, Autumn=2, Winter=3.
+    Extract the season from the 'Date' column and encode it as a numeric ID.
+    Spring=0, Summer=1, Autumn=2, Winter=3.
     Input: DataFrame with 'Date' column in format YYYY-MM-DD
-    Output: DataFrame with new column 'Season_id'
+    Output: DataFrame with new column 'Season'
     """
-    
+
     months = df["Date"].str.split("-").str[1].astype(int)
 
-    conditions = [
-        months.isin([3, 4, 5]),       # Spring
-        months.isin([6, 7, 8]),       # Summer
-        months.isin([9, 10, 11]),     # Autumn
-        months.isin([12, 1, 2])       # Winter
-    ]
-    seasons = ["Spring", "Summer", "Autumn", "Winter"]
+    df["Season"] = np.select(
+        [
+            months.isin([3, 4, 5]),        # Spring
+            months.isin([6, 7, 8]),        # Summer
+            months.isin([9, 10, 11]),      # Autumn
+            months.isin([12, 1, 2])        # Winter
+        ],
+        [0, 1, 2, 3],
+        default=-1
+    )
 
-    df["Season"] = np.select(conditions, seasons, default="Unknown")
-    df["Season_id"] = pd.Categorical(df["Season"], categories=seasons).codes
-    
     return df
 
 def __rank_difference(df: pd.DataFrame) -> pd.DataFrame:
