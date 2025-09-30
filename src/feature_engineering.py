@@ -210,7 +210,6 @@ def __career_performance(df: pd.DataFrame) -> pd.DataFrame:
     
     return df
 
-
 def __surface_performance(df: pd.DataFrame) -> pd.DataFrame:
     """
     Compute performance of each player on the match surface.
@@ -381,23 +380,12 @@ def __tournament_performance(df: pd.DataFrame) -> pd.DataFrame:
     
     return df
 
-
 def __rank_trends(df: pd.DataFrame) -> pd.DataFrame:
     """
     Compute ranking or points change over recent period.
     Adds features like 'Rank_change_1', 'Rank_change_2', 'Pts_change_1', 'Pts_change_2'
     Input: DataFrame with 'Rank_1', 'Rank_2', 'Pts_1', 'Pts_2' and historical data
     Output: DataFrame with trend features
-    """
-    
-    return df
-
-def __match_context(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Compute context-based features such as favorite player, close match.
-    Adds 'Is_Favorite', 'Close_match', etc.
-    Input: DataFrame with odds, best-of format, and score
-    Output: DataFrame with context features
     """
     
     return df
@@ -462,6 +450,16 @@ def __recovery_time(df: pd.DataFrame) -> pd.DataFrame:
     
     return df
 
+def __match_context(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Compute context-based features such as favorite player, close match.
+    Adds 'Is_Favorite', 'Close_match', etc.
+    Input: DataFrame with odds, best-of format, and score
+    Output: DataFrame with context features
+    """
+    
+    return df
+
 def __straight_sets_victory(df: pd.DataFrame) -> pd.DataFrame:
     """
     Calculate whether a match was won in straight sets (no set lost).
@@ -486,7 +484,6 @@ def __season(df: pd.DataFrame) -> pd.DataFrame:
     Input: DataFrame with 'Date' column in datetime format
     Output: DataFrame with new column 'Season'
     """
-
     
     # Ensure Date is in datetime format
     if df['Date'].dtype != 'datetime64[ns]':
@@ -508,7 +505,6 @@ def __season(df: pd.DataFrame) -> pd.DataFrame:
     
     return df
 
-    
 def process_features(path_to_df: str) -> pd.DataFrame:
     df = pd.read_csv(path_to_df)
     df_processed = df.copy()
@@ -521,8 +517,8 @@ def process_features(path_to_df: str) -> pd.DataFrame:
     df_processed = __surface_performance(df_processed)
     df_processed = __tournament_performance(df_processed)
     df_processed = __rank_trends(df_processed)
-    df_processed = __match_context(df_processed)
     df_processed = __recovery_time(df_processed)
+    df_processed = __match_context(df_processed)
     df_processed = __straight_sets_victory(df_processed)
     df_processed = __season(df_processed)
     
