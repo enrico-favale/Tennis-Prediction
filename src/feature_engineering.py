@@ -452,29 +452,29 @@ def __recovery_time(df: pd.DataFrame) -> pd.DataFrame:
 
 def __match_context(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Compute context-based features such as favorite player, close match.
-    Adds 'Is_Favorite', 'Close_match', etc.
-    Input: DataFrame with odds, best-of format, and score
-    Output: DataFrame with context features
-    """
-    
-    return df
+    Compute context-based features such as:
+    - Favorite player based on odds
+    - Close match indicator (odds are very close)
+    - Straight sets victory (winner won without losing a set)
 
-def __straight_sets_victory(df: pd.DataFrame) -> pd.DataFrame:
+    Input: DataFrame with columns 'Odd_1', 'Odd_2', 'Score', 'Best of'
+    Output: DataFrame with new context feature columns
     """
-    Calculate whether a match was won in straight sets (no set lost).
-    Adds a new column 'Straight_sets_victory' with 1 for straight-sets wins and 0 otherwise.
-    Input: DataFrame with columns 'Score' and 'Best of'
-    Output: DataFrame with new column 'Straight_sets_victory'
-    """
-    
+
+    # Favorite identification: Player_1 is favorite if Odd_1 < Odd_2
+    df["Is_Favorite_1"] = (df["Odd_1"] < df["Odd_2"]).astype(int)
+    df["Is_Favorite_2"] = (df["Odd_2"] < df["Odd_1"]).astype(int)
+
+    # Close match: odds difference below a small threshold
+    df["Close_match"] = (abs(df["Odd_1"] - df["Odd_2"]) < 0.20).astype(int)
+
+    # Straight sets victory: winner did not lose a set
     n_sets = df["Score"].str.split().apply(len)
-    
     df["Straight_sets_victory"] = np.where(
         ((df["Best of"] == 3) & (n_sets <= 2)) |
         ((df["Best of"] == 5) & (n_sets <= 3)), 1, 0
     )
-    
+
     return df
 
 def __season(df: pd.DataFrame) -> pd.DataFrame:
@@ -518,9 +518,9 @@ def process_features(path_to_df: str) -> pd.DataFrame:
     df_processed = __tournament_performance(df_processed)
     df_processed = __rank_trends(df_processed)
     df_processed = __recovery_time(df_processed)
-    df_processed = __match_context(df_processed)
-    df_processed = __straight_sets_victory(df_processed)
     df_processed = __season(df_processed)
+    
+    # df_processed = __match_context(df_processed)
     
     df_processed.to_csv("../data/processed/atp_tennis_processed.csv", index=False)
     
