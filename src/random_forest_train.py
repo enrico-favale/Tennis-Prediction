@@ -1,3 +1,8 @@
+"""
+Random Forest Classifier for Tennis Match Prediction
+Supports both numpy arrays and pandas DataFrames
+"""
+
 from sklearn.ensemble import BaggingClassifier
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.model_selection import cross_val_score, TimeSeriesSplit
@@ -10,22 +15,23 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
-from typing import Optional, Dict
+from typing import Optional, Dict, Union
+import joblib
 
 
 class RandomForest:
     """
     Random Forest classifier with bagging and subspace sampling for tennis match prediction.
-    Accepts pre-split train/test data directly in the constructor.
+    Accepts pre-split train/test data (both numpy arrays and pandas DataFrames).
     """
     
     def __init__(
         self,
-        X_train: pd.DataFrame,
-        y_train: pd.Series,
-        X_test: pd.DataFrame,
-        y_test: pd.Series,
-        n_estimators: int = 200,
+        X_train: Union[pd.DataFrame, np.ndarray],
+        y_train: Union[pd.Series, np.ndarray],
+        X_test: Union[pd.DataFrame, np.ndarray],
+        y_test: Union[pd.Series, np.ndarray],
+        n_estimators: int = 2000,
         max_depth: int = 15,
         min_samples_split: int = 5,
         min_samples_leaf: int = 2,
@@ -39,13 +45,13 @@ class RandomForest:
         
         Parameters:
         -----------
-        X_train : pd.DataFrame
+        X_train : pd.DataFrame or np.ndarray
             Training features
-        y_train : pd.Series
+        y_train : pd.Series or np.ndarray
             Training target
-        X_test : pd.DataFrame
+        X_test : pd.DataFrame or np.ndarray
             Test features
-        y_test : pd.Series
+        y_test : pd.Series or np.ndarray
             Test target
         n_estimators : int, default=200
             Number of trees in the forest
@@ -77,13 +83,22 @@ class RandomForest:
         # Initialize model
         self.model = None
         
-        # Store data
-        self.X_train = X_train.copy()
-        self.X_test = X_test.copy()
-        self.y_train = y_train.copy()
-        self.y_test = y_test.copy()
+        # Store data - handle both DataFrame and numpy array
+        if isinstance(X_train, pd.DataFrame):
+            self.X_train = X_train.copy()
+            self.X_test = X_test.copy()
+        else:
+            self.X_train = X_train
+            self.X_test = X_test
         
-        # Validate data
+        if isinstance(y_train, pd.Series):
+            self.y_train = y_train.copy()
+            self.y_test = y_test.copy()
+        else:
+            self.y_train = y_train
+            self.y_test = y_test
+        
+        # Validate and convert data if needed
         self._validate_data()
         
         # Predictions storage
@@ -102,7 +117,21 @@ class RandomForest:
     def _validate_data(self) -> None:
         """
         Validate input data and check for common issues.
+        Converts numpy arrays to DataFrames for easier handling.
         """
+        # Convert numpy arrays to DataFrame if needed
+        if isinstance(self.X_train, np.ndarray):
+            n_features = self.X_train.shape[1]
+            feature_names = [f"feature_{i}" for i in range(n_features)]
+            self.X_train = pd.DataFrame(self.X_train, columns=feature_names)
+            self.X_test = pd.DataFrame(self.X_test, columns=feature_names)
+            print(f"✓ Converted numpy arrays to DataFrames with {n_features} features")
+        
+        # Convert numpy arrays to Series if needed (for y)
+        if isinstance(self.y_train, np.ndarray):
+            self.y_train = pd.Series(self.y_train)
+            self.y_test = pd.Series(self.y_test)
+        
         # Check if data is not empty
         if len(self.X_train) == 0 or len(self.X_test) == 0:
             raise ValueError("Training or test set is empty!")
@@ -114,21 +143,21 @@ class RandomForest:
         # Check for NaN values
         if self.X_train.isnull().any().any():
             n_nan = self.X_train.isnull().sum().sum()
-            print(f"Warning: {n_nan} NaN values found in training features. Filling with 0...")
+            print(f"⚠️  Warning: {n_nan} NaN values found in training features. Filling with 0...")
             self.X_train = self.X_train.fillna(0)
             
         if self.X_test.isnull().any().any():
             n_nan = self.X_test.isnull().sum().sum()
-            print(f"Warning: {n_nan} NaN values found in test features. Filling with 0...")
+            print(f"⚠️  Warning: {n_nan} NaN values found in test features. Filling with 0...")
             self.X_test = self.X_test.fillna(0)
         
         # Check for infinite values
         if np.isinf(self.X_train.values).any():
-            print("Warning: Infinite values found in training set. Replacing with 0...")
+            print("⚠️  Warning: Infinite values found in training set. Replacing with 0...")
             self.X_train = self.X_train.replace([np.inf, -np.inf], 0)
             
         if np.isinf(self.X_test.values).any():
-            print("Warning: Infinite values found in test set. Replacing with 0...")
+            print("⚠️  Warning: Infinite values found in test set. Replacing with 0...")
             self.X_test = self.X_test.replace([np.inf, -np.inf], 0)
         
         # Check if all features are numeric
@@ -138,30 +167,39 @@ class RandomForest:
         if len(non_numeric_train) > 0 or len(non_numeric_test) > 0:
             raise ValueError(f"Non-numeric features found! Train: {list(non_numeric_train)}, Test: {list(non_numeric_test)}")
         
+        print("✓ Data validation completed successfully")
+        
     def _print_data_info(self) -> None:
         """
         Print information about the loaded data.
         """
-        print("=" * 70)
+        print("\n" + "=" * 70)
         print("DATA INFORMATION")
         print("=" * 70)
+        
+        # Get number of features
+        if isinstance(self.X_train, pd.DataFrame):
+            n_features = len(self.X_train.columns)
+        else:
+            n_features = self.X_train.shape[1]
+        
         print(f"Training Set:")
         print(f"  Samples:                {len(self.X_train)}")
-        print(f"  Features:               {len(self.X_train.columns)}")
+        print(f"  Features:               {n_features}")
         print(f"  Class Distribution:")
         print(f"    Class 0 (Player 2):   {(self.y_train == 0).sum()} ({(self.y_train == 0).mean()*100:.2f}%)")
         print(f"    Class 1 (Player 1):   {(self.y_train == 1).sum()} ({(self.y_train == 1).mean()*100:.2f}%)")
         
         print(f"\nTest Set:")
         print(f"  Samples:                {len(self.X_test)}")
-        print(f"  Features:               {len(self.X_test.columns)}")
+        print(f"  Features:               {n_features}")
         print(f"  Class Distribution:")
         print(f"    Class 0 (Player 2):   {(self.y_test == 0).sum()} ({(self.y_test == 0).mean()*100:.2f}%)")
         print(f"    Class 1 (Player 1):   {(self.y_test == 1).sum()} ({(self.y_test == 1).mean()*100:.2f}%)")
         
         print(f"\nTotal Samples:            {len(self.X_train) + len(self.X_test)}")
         print(f"Train/Test Split:         {len(self.X_train)/(len(self.X_train)+len(self.X_test))*100:.2f}% / {len(self.X_test)/(len(self.X_train)+len(self.X_test))*100:.2f}%")
-        print("=" * 70)
+        print("=" * 70 + "\n")
         
     def build_model(self) -> None:
         """
@@ -184,6 +222,7 @@ class RandomForest:
             n_jobs=self.n_jobs,
             verbose=1
         )
+        print("✓ Model built successfully")
         
     def train(self) -> None:
         """
@@ -199,7 +238,7 @@ class RandomForest:
         
         self.model.fit(self.X_train, self.y_train)
         
-        print("Training completed!\n")
+        print("✓ Training completed!\n")
         
     def predict(self) -> None:
         """
@@ -216,6 +255,8 @@ class RandomForest:
         self.y_train_proba = self.model.predict_proba(self.X_train)[:, 1]
         self.y_test_proba = self.model.predict_proba(self.X_test)[:, 1]
         
+        print("✓ Predictions generated")
+        
     def calculate_metrics(self) -> Dict:
         """
         Calculate all performance metrics.
@@ -227,7 +268,7 @@ class RandomForest:
         if self.y_test_pred is None:
             raise ValueError("Predictions not generated. Call predict() first.")
         
-        print("=" * 70)
+        print("\n" + "=" * 70)
         print("PERFORMANCE METRICS")
         print("=" * 70)
         
@@ -433,7 +474,7 @@ class RandomForest:
         
         if save_path:
             plt.savefig(save_path, dpi=300, bbox_inches='tight')
-            print(f"\nPlot saved to: {save_path}")
+            print(f"\n✓ Plot saved to: {save_path}")
         else:
             plt.show()
         
@@ -463,7 +504,7 @@ class RandomForest:
             test_f1 = self.metrics['test_f1']
             test_accuracy = self.metrics['test_accuracy']
             print(f"\nPerformance:")
-            print(f"  Test Accuracy:          {test_accuracy:.4f}")
+            print(f"  Test Accuracy:          {test_accuracy:.4f} ({test_accuracy*100:.2f}%)")
             print(f"  Test F1-Score:          {test_f1:.4f}")
             print(f"  Test ROC-AUC:           {test_roc_auc:.4f}")
             print(f"  OOB Score:              {self.metrics['oob_score']:.4f}")
@@ -526,11 +567,10 @@ class RandomForest:
         filepath : str
             Path to save the model
         """
-        import joblib
         if self.model is None:
             raise ValueError("No model to save. Train the model first.")
         joblib.dump(self.model, filepath)
-        print(f"Model saved to: {filepath}")
+        print(f"✓ Model saved to: {filepath}")
         
     def load_model(self, filepath: str) -> None:
         """
@@ -541,6 +581,18 @@ class RandomForest:
         filepath : str
             Path to the saved model
         """
-        import joblib
         self.model = joblib.load(filepath)
-        print(f"Model loaded from: {filepath}")
+        print(f"✓ Model loaded from: {filepath}")
+
+
+# ============================================
+# Usage Example
+# ============================================
+
+if __name__ == "__main__":
+    print("Random Forest Classifier for Tennis Match Prediction")
+    print("=" * 70)
+    print("\nUsage:")
+    print("  from random_forest_train import RandomForest")
+    print("  rf = RandomForest(X_train, y_train, X_test, y_test)")
+    print("  metrics = rf.run_full_pipeline()")
