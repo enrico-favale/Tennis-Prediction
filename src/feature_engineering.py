@@ -505,9 +505,7 @@ def __season(df: pd.DataFrame) -> pd.DataFrame:
     
     return df
 
-def process_features(path_to_df: str) -> pd.DataFrame:
-    df = pd.read_csv(path_to_df)
-    df_processed = df.copy()
+def process_features(df_processed: pd.DataFrame) -> pd.DataFrame:
     
     df_processed = __rank_difference(df_processed)
     df_processed = __odds_difference(df_processed)
@@ -521,8 +519,6 @@ def process_features(path_to_df: str) -> pd.DataFrame:
     df_processed = __season(df_processed)
     
     # df_processed = __match_context(df_processed)
-    
-    df_processed.to_csv("../data/processed/atp_tennis_processed.csv", index=False)
     
     return df_processed
     
