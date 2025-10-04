@@ -31,7 +31,7 @@ class RandomForest:
         y_train: Union[pd.Series, np.ndarray],
         X_test: Union[pd.DataFrame, np.ndarray],
         y_test: Union[pd.Series, np.ndarray],
-        n_estimators: int = 2000,
+        n_estimators: int = 500,
         max_depth: int = 15,
         min_samples_split: int = 5,
         min_samples_leaf: int = 2,
@@ -220,7 +220,7 @@ class RandomForest:
             oob_score=True,
             random_state=self.random_state,
             n_jobs=self.n_jobs,
-            verbose=1
+            verbose=0
         )
         print("✓ Model built successfully")
         
@@ -477,6 +477,8 @@ class RandomForest:
             print(f"\n✓ Plot saved to: {save_path}")
         else:
             plt.show()
+            
+        plt.close()
         
     def print_summary(self) -> None:
         """
@@ -583,7 +585,6 @@ class RandomForest:
         """
         self.model = joblib.load(filepath)
         print(f"✓ Model loaded from: {filepath}")
-
 
 # ============================================
 # Usage Example

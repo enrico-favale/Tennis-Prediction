@@ -3,10 +3,18 @@ import numpy as np
 
 def __rank_difference(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Compute the difference in ranking and points between the two players.
+    Compute the difference in rankings and points between the two players.
     Adds 'Rank_diff' = Rank_1 - Rank_2 and 'Pts_diff' = Pts_1 - Pts_2.
-    Input: DataFrame with 'Rank_1', 'Rank_2', 'Pts_1', 'Pts_2'
-    Output: DataFrame with new columns 'Rank_diff', 'Pts_diff'
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        DataFrame containing 'Rank_1', 'Rank_2', 'Pts_1', 'Pts_2'
+
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame with new columns 'Rank_diff', 'Pts_diff'
     """
     
     df["Rank_diff"]= df["Rank_1"] - df["Rank_2"]
@@ -17,9 +25,17 @@ def __rank_difference(df: pd.DataFrame) -> pd.DataFrame:
 def __odds_difference(df: pd.DataFrame) -> pd.DataFrame:
     """
     Compute the difference in betting odds between the two players.
-    Adds 'Odds_diff' = Odd_1 - Odd_2
-    Input: DataFrame with 'Odd_1' and 'Odd_2'
-    Output: DataFrame with new column 'Odds_diff'
+    Adds 'Odds_diff' = Odd_1 - Odd_2.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        DataFrame with 'Odd_1' and 'Odd_2' columns
+
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame with new column 'Odds_diff'
     """
     
     df["Odds_diff"]= round(df["Odd_1"] - df["Odd_2"], 2)
@@ -29,10 +45,20 @@ def __odds_difference(df: pd.DataFrame) -> pd.DataFrame:
 def __h2h_features(df: pd.DataFrame) -> pd.DataFrame:
     """
     Compute head-to-head statistics between Player_1 and Player_2.
-    Adds columns for previous wins and differences: 'H2H_wins_1', 'H2H_wins_2', 'H2H_diff'
-    Input: DataFrame with historical match results
-    Output: DataFrame with new H2H feature columns
+    Adds 'H2H_wins_1', 'H2H_wins_2', 'H2H_diff' representing 
+    the number of previous wins and win difference.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        DataFrame with historical match results
+
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame with new head-to-head feature columns
     """
+    
     df = df.sort_values('Date').reset_index(drop=True)
     
     # Initialize columns
@@ -72,12 +98,21 @@ def __h2h_features(df: pd.DataFrame) -> pd.DataFrame:
 
 def __recent_form(df: pd.DataFrame, n_matches: int = 5) -> pd.DataFrame:
     """
-    Compute recent form of each player based on the last n_matches.
-    Adds features like 'Win_pct_1_lastN', 'Win_pct_2_lastN', 'Win_pct_diff_lastN',
-    and number of matches played.
-    
-    Input: DataFrame with historical match results
-    Output: DataFrame with new recent form features
+    Compute recent form of each player based on the last n matches.
+    Adds 'Win_pct_1_lastN', 'Win_pct_2_lastN', 'Win_pct_diff_lastN',
+    'Matches_played_1', and 'Matches_played_2'.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        DataFrame with historical match results
+    n_matches : int, optional
+        Number of recent matches to consider, by default 5
+
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame with new recent form features
     """
     
     # Sort matches chronologically
@@ -133,11 +168,22 @@ def __recent_form(df: pd.DataFrame, n_matches: int = 5) -> pd.DataFrame:
 
 def __career_performance(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Compute performance of each player on career.
-    Adds features like 'Career_win_pct','Career_lose'
-    Input: DataFrame with 'Winner' column and historical match results
-    Output: DataFrame with new win/lose performance features
+    Compute each player's career performance statistics.
+    Adds 'Career_wins_1', 'Career_losses_1', 'Career_win_pct_1', 
+    'Career_wins_2', 'Career_losses_2', 'Career_win_pct_2', 
+    and differences like 'Career_win_pct_diff', 'Career_matches_diff'.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        DataFrame with historical match results
+
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame with career performance features
     """
+    
     # Sort chronologically
     df = df.sort_values('Date').reset_index(drop=True)
     
@@ -212,10 +258,20 @@ def __career_performance(df: pd.DataFrame) -> pd.DataFrame:
 
 def __surface_performance(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Compute performance of each player on the match surface.
-    Adds features like 'Surface_win_pct_1', 'Surface_win_pct_2', 'Surface_win_diff'
-    Input: DataFrame with 'Surface' column and historical match results
-    Output: DataFrame with new surface performance features
+    Compute player performance on the match surface.
+    Adds 'Surface_wins_1', 'Surface_losses_1', 'Surface_win_pct_1', 
+    'Surface_wins_2', 'Surface_losses_2', 'Surface_win_pct_2', 
+    'Surface_win_pct_diff', and 'Surface_matches_diff'.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        DataFrame with historical match results and 'Surface' column
+
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame with surface performance features
     """
     
     # Sort chronologically
@@ -297,10 +353,20 @@ def __surface_performance(df: pd.DataFrame) -> pd.DataFrame:
 
 def __tournament_performance(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Compute performance of each player in the specific tournament.
-    Adds features like 'Tournament_win_pct_1', 'Tournament_win_pct_2', 'Tournament_win_diff'
-    Input: DataFrame with 'Tournament' column and historical match results
-    Output: DataFrame with new tournament performance features
+    Compute player performance in specific tournaments.
+    Adds 'Tournament_wins_1', 'Tournament_losses_1', 'Tournament_win_pct_1',
+    'Tournament_wins_2', 'Tournament_losses_2', 'Tournament_win_pct_2',
+    and differences like 'Tournament_win_pct_diff', 'Tournament_matches_diff'.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        DataFrame with historical match results and 'Tournament' column
+
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame with tournament performance features
     """
     
     # Sort chronologically
@@ -382,19 +448,36 @@ def __tournament_performance(df: pd.DataFrame) -> pd.DataFrame:
 
 def __rank_trends(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Compute ranking or points change over recent period.
-    Adds features like 'Rank_change_1', 'Rank_change_2', 'Pts_change_1', 'Pts_change_2'
-    Input: DataFrame with 'Rank_1', 'Rank_2', 'Pts_1', 'Pts_2' and historical data
-    Output: DataFrame with trend features
+    Compute ranking and points trends over recent periods.
+    Adds 'Rank_change_1', 'Rank_change_2', 'Pts_change_1', 'Pts_change_2'.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        DataFrame with historical rank and points information
+
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame with trend features
     """
     
     return df
 
 def __recovery_time(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Compute timing-based features like 'Days_since_last_match' for both players.
-    Input: DataFrame with match dates and historical data
-    Output: DataFrame with timing features
+    Compute timing-based features such as days since last match for both players.
+    Adds 'Days_since_last_match_1', 'Days_since_last_match_2', and 'Days_diff'.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        DataFrame with match dates and historical data
+
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame with recovery time features
     """
     
     # Sort matches chronologically
@@ -452,13 +535,18 @@ def __recovery_time(df: pd.DataFrame) -> pd.DataFrame:
 
 def __match_context(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Compute context-based features such as:
-    - Favorite player based on odds
-    - Close match indicator (odds are very close)
-    - Straight sets victory (winner won without losing a set)
+    Compute match context features such as favorite player, close match indicator,
+    and straight sets victory.
 
-    Input: DataFrame with columns 'Odd_1', 'Odd_2', 'Score', 'Best of'
-    Output: DataFrame with new context feature columns
+    Parameters
+    ----------
+    df : pd.DataFrame
+        DataFrame with 'Odd_1', 'Odd_2', 'Score', 'Best of' columns
+
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame with match context feature columns
     """
 
     # Favorite identification: Player_1 is favorite if Odd_1 < Odd_2
@@ -479,17 +567,26 @@ def __match_context(df: pd.DataFrame) -> pd.DataFrame:
 
 def __season(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Extract the season from the 'Date' column and encode it as a numeric ID.
+    Extract season and the year from 'Date' and encode as numeric ID:
     Spring=0, Summer=1, Autumn=2, Winter=3.
-    Input: DataFrame with 'Date' column in datetime format
-    Output: DataFrame with new column 'Season'
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        DataFrame with 'Date' column in datetime format
+
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame with new 'Season' column
     """
     
     # Ensure Date is in datetime format
     if df['Date'].dtype != 'datetime64[ns]':
         df['Date'] = pd.to_datetime(df['Date'])
     
-    # Extract month using .dt accessor (not .str since Date is datetime)
+    # Extract month and year using .dt accessor (not .str since Date is datetime)
+    df['Year'] = df['Date'].dt.year
     months = df['Date'].dt.month
     
     df['Season'] = np.select(
